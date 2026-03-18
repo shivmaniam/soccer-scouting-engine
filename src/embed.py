@@ -13,10 +13,6 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
-import torch
-
-from src.features import FEATURE_COLUMNS, load_features, scale_features
-from src.model import load_model
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +42,12 @@ def generate_embeddings(
         Columns: player_id (index), player_name, team, total_minutes,
         emb_0 … emb_7.
     """
+    # Lazy imports — torch and the pipeline modules are only needed when
+    # re-generating embeddings, not when loading pre-built ones.
+    import torch
+    from src.features import load_features, scale_features
+    from src.model import load_model
+
     features_df = load_features(features_path)
     X, _ = scale_features(features_df)
 
