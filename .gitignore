@@ -1,0 +1,30 @@
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# data (large files — track schema, not content)
+data/raw/
+data/*.parquet
+data/*.pt
+data/*.index
+data/*.pkl
+
+# MLflow artefacts
+mlflow/
+
+# env
+.env
+*.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
