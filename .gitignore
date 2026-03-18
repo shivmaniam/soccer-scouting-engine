@@ -9,10 +9,11 @@ coverage.xml
 
 # data (large files — track schema, not content)
 data/raw/
-data/*.parquet
-data/*.pt
-data/*.index
-data/*.pkl
+# Uncomment the lines below if NOT committing pipeline outputs to git
+# data/*.parquet
+# data/*.pt
+# data/*.index
+# data/*.pkl
 
 # MLflow artefacts
 mlflow/
