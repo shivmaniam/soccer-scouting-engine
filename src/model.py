@@ -13,6 +13,7 @@ Training is logged to MLflow (experiment: "scouting-autoencoder").
 from __future__ import annotations
 
 import argparse
+import contextlib
 import logging
 from pathlib import Path
 from typing import Optional
@@ -205,7 +206,7 @@ def load_model(
     if path is None:
         path = MODEL_DIR / "autoencoder.pt"
     model = PlayerAutoencoder(input_dim=input_dim, latent_dim=latent_dim)
-    model.load_state_dict(torch.load(path, map_location="cpu"))
+    model.load_state_dict(torch.load(path, map_location="cpu", weights_only=True))
     model.eval()
     return model
 
@@ -243,7 +244,7 @@ if __name__ == "__main__":
     mlflow.set_experiment("scouting-autoencoder")
 
     use_mlflow = not args.no_mlflow
-    with (mlflow.start_run() if use_mlflow else __import__("contextlib").nullcontext()):
+    with (mlflow.start_run() if use_mlflow else contextlib.nullcontext()):
         trained = train(
             model,
             X_train,

@@ -7,8 +7,8 @@ search.  Chroma is available as an alternative backend.
 
 from __future__ import annotations
 
+import json
 import logging
-import pickle
 from pathlib import Path
 from typing import Literal, Optional
 
@@ -60,7 +60,7 @@ def build_faiss_index(
     import faiss  # imported lazily to keep module importable without faiss
 
     index_path = index_path or DATA_DIR / "faiss.index"
-    id_map_path = id_map_path or DATA_DIR / "faiss_id_map.pkl"
+    id_map_path = id_map_path or DATA_DIR / "faiss_id_map.json"
 
     X = _get_emb_matrix(embeddings)
     dim = X.shape[1]
@@ -69,9 +69,9 @@ def build_faiss_index(
     index.add(X)
 
     faiss.write_index(index, str(index_path))
-    player_ids = list(embeddings.index)
-    with open(id_map_path, "wb") as f:
-        pickle.dump(player_ids, f)
+    player_ids = [int(pid) for pid in embeddings.index]
+    with open(id_map_path, "w") as f:
+        json.dump(player_ids, f)
 
     logger.info("Built FAISS index (%d vectors, dim=%d) → %s", len(player_ids), dim, index_path)
     return index, player_ids
@@ -85,11 +85,11 @@ def load_faiss_index(
     import faiss
 
     index_path = index_path or DATA_DIR / "faiss.index"
-    id_map_path = id_map_path or DATA_DIR / "faiss_id_map.pkl"
+    id_map_path = id_map_path or DATA_DIR / "faiss_id_map.json"
 
     index = faiss.read_index(str(index_path))
-    with open(id_map_path, "rb") as f:
-        player_ids = pickle.load(f)
+    with open(id_map_path, "r") as f:
+        player_ids = json.load(f)
     return index, player_ids
 
 
