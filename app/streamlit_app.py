@@ -68,13 +68,13 @@ _RADAR_COLS = [
     "goals_p90", "shots_p90", "xg_p90",
     "key_passes_p90", "dribbles_completed_p90", "progressive_carries_p90",
     "pass_completion_pct", "progressive_passes_p90",
-    "tackles_won_p90", "pressures_p90", "Interception_p90",
+    "tackles_won_p90", "pressures_p90", "interceptions_p90",
 ]
 _RADAR_LABELS = [
     "Goals", "Shots", "xG",
     "Key Passes", "Dribbles", "Prog Carries",
     "Pass Cmp%", "Prog Passes",
-    "Tackles", "Pressures", "Interceptions",
+    "Tackles Won", "Pressures", "Interceptions",
 ]
 
 
