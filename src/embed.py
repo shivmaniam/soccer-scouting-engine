@@ -75,7 +75,9 @@ def load_embeddings(path: Optional[Path] = None) -> pd.DataFrame:
     path = path or DATA_DIR / "embeddings.parquet"
     if not path.exists():
         raise FileNotFoundError(f"Embeddings not found: {path}. Run embed.py first.")
-    return pd.read_parquet(path)
+    df = pd.read_parquet(path)
+    df.index = df.index.astype(int)
+    return df
 
 
 if __name__ == "__main__":
