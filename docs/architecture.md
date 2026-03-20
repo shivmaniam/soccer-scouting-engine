@@ -21,16 +21,15 @@ StatsBomb Open Data
                                └──────────────┘
                                        │
                                        ▼
-                               ┌──────────────┐   FAISS index
-                               │   search.py  │ ───────────────────▶  data/faiss.index
+                               ┌──────────────┐   nn_index.pkl
+                               │   search.py  │ ───────────────────▶  data/nn_index.pkl
                                └──────────────┘
                                        │
-                               ┌───────┴────────┐
-                               ▼                ▼
-                        ┌──────────┐     ┌──────────────┐
-                        │ FastAPI  │     │  Streamlit   │
-                        │ api/     │◀────│  app/        │
-                        └──────────┘     └──────────────┘
+                                       ▼
+                               ┌──────────────┐
+                               │  Streamlit   │
+                               │  app/        │
+                               └──────────────┘
 ```
 
 ## Component Descriptions
@@ -41,17 +40,16 @@ StatsBomb Open Data
 | Features | `src/features.py` | Per-90 feature vectors (30 dims) |
 | Model | `src/model.py` | PyTorch autoencoder training + MLflow |
 | Embed | `src/embed.py` | Encode all players → 8-dim embeddings |
-| Search | `src/search.py` | FAISS index + `SimilarityIndex` class |
+| Search | `src/search.py` | sklearn NearestNeighbors index + `SimilarityIndex` class |
 | Evaluate | `src/evaluate.py` | Reconstruction loss, position purity |
-| API | `api/main.py` | FastAPI REST service |
-| UI | `app/streamlit_app.py` | Radar chart, UMAP scatter, results table |
+| UI | `app/streamlit_app.py` | Radar chart, UMAP scatter, results table (loads data directly from disk) |
 
 ## Feature Groups (30 features)
 
 - **Attacking (8):** goals, shots, xG, xA, key passes, dribbles completed, touches in box, progressive carries
-- **Passing (8):** pass completion %, total passes, forward pass %, long ball %, crosses, through balls, switches, progressive passes
+- **Passing (8):** pass completion %, total passes, forward pass %, long ball %, crosses, through balls, switches of play, progressive passes
 - **Defending (7):** tackles won, interceptions, clearances, blocks, pressures, pressure success %, duel win %
-- **Style (7):** ball receipts, carries, dispossessed, fouls won, fouls committed, yellow cards, completed passes
+- **Style (7):** receptions, carries, dispossessed, fouls won, fouls committed, yellow cards, completed passes
 
 ## Model Architecture
 

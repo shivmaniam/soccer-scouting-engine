@@ -2,7 +2,17 @@
 
 > *"Which players across global leagues play most like [Player X]?"*
 
-A portfolio project that answers this question using player embeddings built from StatsBomb open event data, a PyTorch autoencoder, FAISS vector search, a FastAPI backend, and a Streamlit UI.
+A project that answers this question using player embeddings built from StatsBomb open event data, a PyTorch autoencoder, sklearn nearest-neighbor search, and a Streamlit UI.
+
+---
+
+## About This Project
+
+This is an **experiment in AI-assisted development** — specifically, using [Claude Code](https://claude.ai/claude-code) to take a project from initial idea all the way to a working product. The architecture, feature engineering, model design, test suite, and documentation were all developed collaboratively with Claude Code, with a human acting as product owner and decision-maker.
+
+The goal: see how far you can get building a real ML system when the AI handles implementation details and you stay focused on the "what" and "why."
+
+**Live demo:** [similar-soccer-player-search.streamlit.app](https://similar-soccer-player-search.streamlit.app/)
 
 ---
 
@@ -21,12 +31,11 @@ make features
 # 4. Train the autoencoder (logs to MLflow)
 make train
 
-# 5. Generate embeddings + build FAISS index
+# 5. Generate embeddings + build nearest-neighbor index
 make embed
 make index
 
-# 6. Start the API + UI
-make api        # http://localhost:8000
+# 6. Launch the UI
 make app        # http://localhost:8501
 make mlflow-ui  # http://localhost:5000
 ```
@@ -56,6 +65,8 @@ soccer-scouting-engine/
 │   ├── raw/                    # Parquet dumps from StatsBomb
 │   ├── player_features.parquet
 │   ├── embeddings.parquet
+│   ├── nn_index.pkl            # sklearn NearestNeighbors index
+│   ├── nn_id_map.json
 │   └── autoencoder.pt
 ├── notebooks/
 │   ├── 01_eda.ipynb
@@ -66,19 +77,19 @@ soccer-scouting-engine/
 │   ├── features.py     # Per-90 feature engineering
 │   ├── model.py        # PyTorch autoencoder
 │   ├── embed.py        # Generate embeddings
-│   ├── search.py       # FAISS index + similarity search
+│   ├── search.py       # sklearn index + similarity search
 │   └── evaluate.py     # Embedding quality metrics
-├── api/
-│   └── main.py         # FastAPI REST endpoints
 ├── app/
 │   └── streamlit_app.py
-├── docker/
-│   ├── Dockerfile
-│   └── docker-compose.yml
 ├── .github/workflows/ci.yml
 ├── docs/
 │   ├── architecture.md
 │   └── project_charter.md
+├── tests/
+│   ├── test_model.py
+│   ├── test_features.py
+│   ├── test_search.py
+│   └── test_evaluate.py
 ├── requirements.txt
 ├── Makefile
 └── README.md
@@ -86,26 +97,13 @@ soccer-scouting-engine/
 
 ---
 
-## API Endpoints
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/health` | Health check |
-| `GET` | `/players` | List indexed players |
-| `GET` | `/players/{id}` | Player metadata |
-| `GET` | `/similar/{id}` | Top-k similar players by ID |
-| `POST` | `/similar/by-name` | Top-k similar players by name |
-
----
-
-## Docker
+## Tests
 
 ```bash
-make docker-build
-make docker-up
+make test
 ```
 
-Services: `api` (8000), `streamlit` (8501), `mlflow` (5000).
+38 tests covering the model, feature pipeline, search index, and evaluation metrics. All synthetic — no real data required to run the suite.
 
 ---
 
@@ -115,4 +113,3 @@ GitHub Actions runs on every push to `main` / `develop`:
 1. **Lint** — ruff
 2. **Test** — pytest with coverage
 3. **Smoke pipeline** — ingest 3 matches → features → train → embed → index
-4. **Docker build** — API + Streamlit images

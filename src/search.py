@@ -1,19 +1,21 @@
 """
 search.py
 ---------
-Build a FAISS index over player embeddings and expose nearest-neighbour
-search.  Chroma is available as an alternative backend.
+Build a scikit-learn NearestNeighbors index over player embeddings and expose
+nearest-neighbour search.
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import pickle
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Optional
 
 import numpy as np
 import pandas as pd
+from sklearn.neighbors import NearestNeighbors
 
 from src.embed import load_embeddings
 
@@ -21,8 +23,6 @@ logger = logging.getLogger(__name__)
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT / "data"
-
-BackendType = Literal["faiss", "chroma"]
 
 EMB_COLS_PREFIX = "emb_"
 
@@ -33,80 +33,78 @@ def _get_emb_matrix(embeddings: pd.DataFrame) -> np.ndarray:
     return embeddings[emb_cols].values.astype(np.float32)
 
 
-# ── FAISS backend ─────────────────────────────────────────────────────────────
+# ── sklearn backend ────────────────────────────────────────────────────────────
 
-def build_faiss_index(
+def build_sklearn_index(
     embeddings: pd.DataFrame,
     index_path: Optional[Path] = None,
     id_map_path: Optional[Path] = None,
-) -> tuple[object, list[int]]:
-    """Build and persist a FAISS flat L2 index.
+) -> tuple[NearestNeighbors, list[int]]:
+    """Fit and persist a sklearn NearestNeighbors index.
 
     Parameters
     ----------
     embeddings:
         Output of :func:`~src.embed.load_embeddings`.
     index_path:
-        Where to write the FAISS index binary.
+        Where to write the pickled NearestNeighbors object.
     id_map_path:
-        Where to write the player_id list (pickle), needed to map FAISS
-        integer positions back to player IDs.
+        Where to write the player_id list (JSON), needed to map integer
+        positions back to player IDs.
 
     Returns
     -------
-    tuple[faiss.Index, list[int]]
-        The FAISS index and the ordered list of player IDs.
+    tuple[NearestNeighbors, list[int]]
+        The fitted index and the ordered list of player IDs.
     """
-    import faiss  # imported lazily to keep module importable without faiss
-
-    index_path = index_path or DATA_DIR / "faiss.index"
-    id_map_path = id_map_path or DATA_DIR / "faiss_id_map.json"
+    index_path = index_path or DATA_DIR / "nn_index.pkl"
+    id_map_path = id_map_path or DATA_DIR / "nn_id_map.json"
 
     X = _get_emb_matrix(embeddings)
-    dim = X.shape[1]
 
-    index = faiss.IndexFlatL2(dim)
-    index.add(X)
+    nn = NearestNeighbors(metric="euclidean", algorithm="auto")
+    nn.fit(X)
 
-    faiss.write_index(index, str(index_path))
+    with open(index_path, "wb") as f:
+        pickle.dump(nn, f)
+
     player_ids = [int(pid) for pid in embeddings.index]
     with open(id_map_path, "w") as f:
         json.dump(player_ids, f)
 
-    logger.info("Built FAISS index (%d vectors, dim=%d) → %s", len(player_ids), dim, index_path)
-    return index, player_ids
+    logger.info("Built sklearn index (%d vectors, dim=%d) → %s", len(player_ids), X.shape[1], index_path)
+    return nn, player_ids
 
 
-def load_faiss_index(
+def load_sklearn_index(
     index_path: Optional[Path] = None,
     id_map_path: Optional[Path] = None,
-) -> tuple[object, list[int]]:
-    """Load a persisted FAISS index."""
-    import faiss
+) -> tuple[NearestNeighbors, list[int]]:
+    """Load a persisted sklearn NearestNeighbors index."""
+    index_path = index_path or DATA_DIR / "nn_index.pkl"
+    id_map_path = id_map_path or DATA_DIR / "nn_id_map.json"
 
-    index_path = index_path or DATA_DIR / "faiss.index"
-    id_map_path = id_map_path or DATA_DIR / "faiss_id_map.json"
-
-    index = faiss.read_index(str(index_path))
+    with open(index_path, "rb") as f:
+        nn = pickle.load(f)
     with open(id_map_path, "r") as f:
         player_ids = json.load(f)
-    return index, player_ids
+    return nn, player_ids
 
 
-def search_faiss(
+def search_sklearn(
     query_vector: np.ndarray,
-    index: object,
+    nn: NearestNeighbors,
     player_ids: list[int],
     top_k: int = 10,
 ) -> list[tuple[int, float]]:
-    """Return top-k nearest neighbours from a FAISS index.
+    """Return top-k nearest neighbours from a sklearn index.
 
     Parameters
     ----------
     query_vector:
         1-D float32 array of shape (latent_dim,).
-    index:
-        A loaded FAISS index.
+    nn:
+        A fitted NearestNeighbors instance.
     player_ids:
         Ordered player ID list (same order as index was built).
     top_k:
@@ -115,15 +113,13 @@ def search_faiss(
     Returns
     -------
     list[tuple[int, float]]
-        (player_id, l2_distance) pairs, sorted by ascending distance.
+        (player_id, euclidean_distance) pairs, sorted by ascending distance.
     """
     q = query_vector.reshape(1, -1).astype(np.float32)
-    distances, indices = index.search(q, top_k + 1)  # +1 to skip self
+    distances, indices = nn.kneighbors(q, n_neighbors=top_k + 1)  # +1 to skip self
 
     results = []
     for dist, idx in zip(distances[0], indices[0]):
-        if idx == -1:
-            continue
         results.append((player_ids[idx], float(dist)))
     return results
 
@@ -131,7 +127,7 @@ def search_faiss(
 # ── high-level API ────────────────────────────────────────────────────────────
 
 class SimilarityIndex:
-    """Wraps FAISS search with player metadata for easy lookup.
+    """Wraps sklearn NearestNeighbors search with player metadata for easy lookup.
 
     Example
     -------
@@ -142,11 +138,11 @@ class SimilarityIndex:
     def __init__(
         self,
         embeddings: pd.DataFrame,
-        index: object,
+        nn: NearestNeighbors,
         player_ids: list[int],
     ) -> None:
         self._embeddings = embeddings
-        self._index = index
+        self._nn = nn
         self._player_ids = player_ids
         # Build reverse lookup: player_name (lower) → player_id
         self._name_to_id: dict[str, int] = {
@@ -160,15 +156,15 @@ class SimilarityIndex:
         """Build the index from embeddings (and persist to disk)."""
         if embeddings is None:
             embeddings = load_embeddings()
-        index, player_ids = build_faiss_index(embeddings)
-        return cls(embeddings, index, player_ids)
+        nn, player_ids = build_sklearn_index(embeddings)
+        return cls(embeddings, nn, player_ids)
 
     @classmethod
     def from_disk(cls) -> "SimilarityIndex":
         """Load a pre-built index from disk."""
         embeddings = load_embeddings()
-        index, player_ids = load_faiss_index()
-        return cls(embeddings, index, player_ids)
+        nn, player_ids = load_sklearn_index()
+        return cls(embeddings, nn, player_ids)
 
     def find_similar(
         self,
@@ -207,7 +203,7 @@ class SimilarityIndex:
         emb_cols = [c for c in self._embeddings.columns if c.startswith(EMB_COLS_PREFIX)]
         query_vec = self._embeddings.loc[pid, emb_cols].values.astype(np.float32)
 
-        raw = search_faiss(query_vec, self._index, self._player_ids, top_k=top_k + 1)
+        raw = search_sklearn(query_vec, self._nn, self._player_ids, top_k=top_k + 1)
 
         rows = []
         for result_pid, dist in raw:
@@ -245,7 +241,7 @@ if __name__ == "__main__":
     )
 
     parser = argparse.ArgumentParser(description="Build or query the similarity index.")
-    parser.add_argument("--build", action="store_true", help="Build the FAISS index.")
+    parser.add_argument("--build", action="store_true", help="Build the sklearn index.")
     parser.add_argument("--query", type=str, default=None, help="Player name to query.")
     parser.add_argument("--top-k", type=int, default=10)
     args = parser.parse_args()

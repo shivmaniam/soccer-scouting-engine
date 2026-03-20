@@ -1,4 +1,4 @@
-.PHONY: help install lint test ingest features train embed index api app docker-build docker-up clean
+.PHONY: help install lint test ingest features train embed index app mlflow-ui clean
 
 PYTHON      := python
 SRC         := src
@@ -18,10 +18,10 @@ install: ## Install Python dependencies
 # ── code quality ──────────────────────────────────────────────────────────────
 
 lint: ## Run ruff linter
-	ruff check $(SRC) api app
+	ruff check $(SRC) app
 
 format: ## Auto-fix formatting with ruff
-	ruff format $(SRC) api app
+	ruff format $(SRC) app
 
 test: ## Run test suite with coverage
 	pytest tests/ -v --cov=$(SRC) --cov-report=term-missing
@@ -49,7 +49,7 @@ train: ## Train the autoencoder embedding model (logs to MLflow)
 embed: ## Generate player embeddings from the trained model
 	$(PYTHON) -m src.embed
 
-index: ## Build FAISS / Chroma vector index
+index: ## Build sklearn NearestNeighbors vector index
 	$(PYTHON) -m src.search --build
 
 evaluate: ## Evaluate embedding quality
@@ -61,25 +61,11 @@ pipeline: ingest features train embed index ## Run the complete end-to-end pipel
 
 # ── services ──────────────────────────────────────────────────────────────────
 
-api: ## Start FastAPI server (development mode)
-	uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
-
 app: ## Start Streamlit frontend
 	streamlit run app/streamlit_app.py --server.port 8501
 
 mlflow-ui: ## Open MLflow experiment tracking UI
 	mlflow ui --backend-store-uri mlflow/ --host 0.0.0.0 --port 5000
-
-# ── docker ────────────────────────────────────────────────────────────────────
-
-docker-build: ## Build all Docker images
-	docker compose -f docker/docker-compose.yml build
-
-docker-up: ## Start all services via Docker Compose
-	docker compose -f docker/docker-compose.yml up
-
-docker-down: ## Stop all Docker Compose services
-	docker compose -f docker/docker-compose.yml down
 
 # ── housekeeping ──────────────────────────────────────────────────────────────
 

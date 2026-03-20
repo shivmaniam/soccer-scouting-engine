@@ -8,12 +8,12 @@ Feature groups (30 features total):
   Attacking  (8) — goals, shots, xG, xA, key passes, dribbles completed,
                    touches in box, progressive carries
   Passing    (8) — pass completion %, total passes, forward passes %,
-                   long ball %, crosses, through balls, switches,
+                   long ball %, crosses, through balls, switches of play,
                    progressive passes
   Defending  (7) — tackles won, interceptions, clearances, blocks,
-                   pressures, pressure success %, aerials won
-  Style      (7) — ball receipts, carries, dispossessed, fouls won,
-                   fouls committed, yellow cards, duel win %
+                   pressures, pressure success %, duel win %
+  Style      (7) — receptions, carries, dispossessed, fouls won,
+                   fouls committed, yellow cards, completed passes
 
 All counting stats are normalised to per-90 minutes using actual playing time
 estimated from lineups / substitution events.
@@ -402,9 +402,9 @@ def aggregate_defending(events: pd.DataFrame) -> pd.DataFrame:
         duels_won=("won", "sum"),
     ).reset_index()
 
-    interceptions = _count("Interception")
-    clearances = _count("Clearance")
-    blocks = _count("Block")
+    interceptions = _count("Interception").rename(columns={"Interception": "interceptions"})
+    clearances = _count("Clearance").rename(columns={"Clearance": "clearances"})
+    blocks = _count("Block").rename(columns={"Block": "blocks"})
 
     merged = (
         tackle_agg
@@ -506,9 +506,9 @@ FEATURE_COLUMNS = [
     "progressive_passes_p90",
     # Defending (7)
     "tackles_won_p90",
-    "Interception_p90",
-    "Clearance_p90",
-    "Block_p90",
+    "interceptions_p90",
+    "clearances_p90",
+    "blocks_p90",
     "pressures_p90",
     "pressure_success_pct",
     "duel_win_pct",
